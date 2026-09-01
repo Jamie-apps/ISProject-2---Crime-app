@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Dashboard</title>
+    <style>
+        body { font-family: Segoe UI; background: #f6f8fa; margin: 0; }
+        .topbar {
+            background: #24292f; color: white; padding: 18px 40px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .container {
+            max-width: 1200px; margin: 30px auto; background: white;
+            padding: 30px; border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; border-bottom: 1px solid #ccc; }
+        th { background: #e1e4e8; }
+        button {
+            padding: 6px 12px; border: none; border-radius: 6px;
+            cursor: pointer; background: #dc3545; color: white;
+        }
+        button:hover { background: #b52a38; }
+        .add-admin { background:#28a745; margin-top:15px; }
+        .add-admin:hover { background:#1d7f33; }
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <h2>Admin Dashboard</h2>
+    <a href="/admin/logout" style="color:white; text-decoration:none;">Logout</a>
+</div>
+
+<div class="container">
+    <h2>External Organisations</h2>
+    <table id="orgTable">
+        <thead>
+            <tr><th>Name</th><th>Email</th><th>Phone</th><th>Actions</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<div class="container">
+    <h2>Reporters</h2>
+    <table id="reporterTable">
+        <thead>
+            <tr><th>Alias</th><th>Email</th><th>Phone</th><th>Total Reports</th><th>Actions</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<div class="container">
+    <h2>System Admins</h2>
+    <table id="adminsTable">
+        <thead>
+            <tr>
+                <th>Admin ID</th>
+                <th>Date Created</th>
+                <th>Last Login</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <!-- Add Admin -->
+    <div style="margin-top: 20px;">
+        <input id="newAdminPass" type="password" placeholder="New admin password">
+        <button class="add-admin" onclick="addAdmin()">Add Admin</button>
+    </div>
+</div>
+
+<script>
+async function loadData() {
+    // ---------------- LOAD ORGS ----------------
+    const orgs = await fetch("/api/admin/api/admin/organizations").then(r => r.json());
+    const orgTable = document.querySelector("#orgTable tbody");
+    orgTable.innerHTML = "";
+    orgs.forEach(o => {
+        orgTable.innerHTML += `
+            <tr>
+                <td>${o.name}</td>
+                <td>${o.email}</td>
+                <td>${o.phone}</td>
+                <td><button onclick="deleteOrg(${o.id})">Delete</button></td>
+            </tr>
+        `;
+    });
+
+    // ---------------- LOAD REPORTERS ----------------
+    const reps = await fetch("/api/admin/api/admin/reporters").then(r => r.json());
+    const repTable = document.querySelector("#reporterTable tbody");
+    repTable.innerHTML = "";
+    reps.forEach(r => {
+        repTable.innerHTML += `
+            <tr>
+                <td>${r.alias}</td>
+                <td>${r.email}</td>
+                <td>${r.phone}</td>
+                <td>${r.reports}</td>
+                <td>
+                    <a href="/reporter/${r.id}/reports">View Reports</a> |
+                     <button onclick="deleteReporter(${r.id})"
+                        style="background:#dc3545; color:white; border:none; padding:6px 12px;
+                        border-radius:6px; cursor:pointer;">
+                        Delete
+                    </button>
+                </form>
+                </td>
+            </tr>
+        `;
+    });
+
+    // ---------------- LOAD ADMINS ----------------
+    await loadAdmins();
+}
+
+async function loadAdmins() {
+    const admins = await fetch("/api/admin/api/admin/admins/list").then(r => r.json());
+    const adminTable = document.querySelector("#adminsTable tbody");
+    adminTable.innerHTML = "";
+
+    admins.forEach(a => {
+        adminTable.innerHTML += `
+            <tr>
+                <td>${a.admin_id}</td>
+                <td>${a.date_created ? a.date_created.replace("T", " ").slice(0,19) : "-"}</td>
+                <td>${a.last_login ? a.last_login.replace("T", " ").slice(0,19) : "-"}</td>
+                <td><button onclick="deleteAdmin(${a.admin_id})">Delete</button></td>
+            </tr>
+        `;
+    });
+}
+
+async function deleteOrg(id) {
+    await fetch(`/api/admin/api/admin/organizations/${id}`, { method: "DELETE" });
+    loadData();
+}
+
+async function deleteReporter(id) {
+    await fetch(`/api/admin/api/admin/reporters/${id}`, { method: "DELETE" });
+    loadData();
+}
+
+async function deleteAdmin(id) {
+    await fetch(`/api/admin/api/admin/admins/${id}`, { method: "DELETE" });
+    loadData();
+}
+
+async function addAdmin() {
+    const password = document.getElementById("newAdminPass").value;
+    if (!password || password.length < 6) {
+        alert("Please enter a password (min 6 chars)");
+        return;
+    }
+
+    const res = await fetch("/api/admin/api/admin/admins/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password })
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+        alert("Admin created (ID: " + data.id + ")");
+        document.getElementById("newAdminPass").value = "";
+        loadAdmins();
+    } else {
+        alert("Error: " + (data.detail || JSON.stringify(data)));
+    }
+}
+
+loadData();
+</script>
+
+
+</body>
+</html>
